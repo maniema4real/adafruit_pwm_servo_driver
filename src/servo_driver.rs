@@ -92,9 +92,9 @@ impl PCA9685 {
         try!(self.device
                  .smbus_write_byte_data(LED0_OFF_L + 4 * channel,
                                         (off & 0xFF) as u8));
-        try!(self.device
-                 .smbus_write_byte_data(LED0_OFF_H + 4 * channel,
-                                        (off >> 8) as u8));
+        self.device
+            .smbus_write_byte_data(LED0_OFF_H + 4 * channel,
+                                   (off >> 8) as u8)?;
         Ok(())
     }
 
@@ -107,6 +107,19 @@ impl PCA9685 {
                  .smbus_write_byte_data(ALL_LED_OFF_L, (off & 0xFF) as u8));
         try!(self.device
                  .smbus_write_byte_data(ALL_LED_OFF_H, (off >> 8) as u8));
+        Ok(())
+    }
+
+    pub fn set_servo(&mut self,
+                     address:u8,
+                   channel: u8,
+                   on: u16,
+                   off: u16)
+                   -> Result<(), LinuxI2CError> {
+
+        self.device
+            .smbus_write_byte_data(address + 4 * channel,
+                                   (off >> 8) as u8)?;
         Ok(())
     }
 }
