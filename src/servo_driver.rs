@@ -38,88 +38,117 @@ pub struct PCA9685 {
 
 impl PCA9685 {
     pub fn new(path: &str) -> Result<Self, LinuxI2CError> {
-        let dev = try!(LinuxI2CDevice::new(path, PCA9685_ADDRESS));
+        let dev = LinuxI2CDevice::new(path, PCA9685_ADDRESS)?;
         Ok(PCA9685 { device: dev })
     }
 
     pub fn init(&mut self) -> Result<(), LinuxI2CError> {
-        try!(self.set_all_pwm(0, 0));
-        try!(self.device.smbus_write_byte_data(MODE2, OUTDRV));
-        try!(self.device.smbus_write_byte_data(MODE1, ALLCALL));
+        self.set_all_pwm(0, 0)?;
+        self.device.smbus_write_byte_data(MODE2, OUTDRV)?;
+        self.device.smbus_write_byte_data(MODE1, ALLCALL)?;
         sleep(time::Duration::from_millis(5));
 
-        let mode1 = try!(self.device.smbus_read_byte_data(MODE1));
+        let mode1 = self.device.smbus_read_byte_data(MODE1)?;
         let mode1 = mode1 & !SLEEP;
-        try!(self.device.smbus_write_byte_data(MODE1, mode1));
+        self.device.smbus_write_byte_data(MODE1, mode1)?;
         sleep(time::Duration::from_millis(5));
         Ok(())
     }
 
+    /*
+    "Sets the PWM frequency"
+    */
     pub fn set_pwm_freq(&mut self, freq_hz: f32) -> Result<(), LinuxI2CError> {
         let prescaleval = 25e6 / 4096.0 / freq_hz - 1.0;
         let prescale = (prescaleval + 0.5).floor() as u8;
         
         // Grab the old mode so we can revert our mode changes once we're done
         // setting the prescale.
-        let old_mode = try!(self.device.smbus_read_byte_data(MODE1));
+        let old_mode = self.device.smbus_read_byte_data(MODE1)?;
 
         // This new mode is used to put the device to sleep so we can set the
         // prescaler safely.
         let new_mode = old_mode & 0x7F | SLEEP;
-        
-        // Set the mode to sleep, set the prescaler, and wake up.
-        try!(self.device.smbus_write_byte_data(MODE1, new_mode)); 
-        try!(self.device.smbus_write_byte_data(PRESCALE, prescale));
-        try!(self.device.smbus_write_byte_data(MODE1, old_mode));
+
+        self.device.smbus_write_byte_data(MODE1, new_mode)?;
+        self.device.smbus_write_byte_data(PRESCALE, prescale)?;
+        self.device.smbus_write_byte_data(MODE1, old_mode)?;
         sleep(time::Duration::from_secs(5));
-        
-        // We need to turn on auto-incrememt for transmission to work properly.
-        try!(self.device.smbus_write_byte_data(MODE1, old_mode | 0xA1));
+
+        self.device.smbus_write_byte_data(MODE1, old_mode | 0xA1)?;
         Ok(())
     }
 
+    /*
+    "Sets a single PWM channel"
+    */
     pub fn set_pwm(&mut self,
                    channel: u8,
                    on: u16,
-                   off: u16)
+                   off: i16)
                    -> Result<(), LinuxI2CError> {
-        try!(self.device
-                 .smbus_write_byte_data(LED0_ON_L + 4 * channel,
-                                        (on & 0xFF) as u8));
-        try!(self.device
-                 .smbus_write_byte_data(LED0_ON_H + 4 * channel,
-                                        (on >> 8) as u8));
-        try!(self.device
-                 .smbus_write_byte_data(LED0_OFF_L + 4 * channel,
-                                        (off & 0xFF) as u8));
+        self.device
+            .smbus_write_byte_data(LED0_ON_L + 4 * channel,
+                                   (on & 0xFF) as u8)?;
+        self.device
+            .smbus_write_byte_data(LED0_ON_H + 4 * channel,
+                                   (on >> 8) as u8)?;
+        self.device
+            .smbus_write_byte_data(LED0_OFF_L + 4 * channel,
+                                   (off & 0xFF) as u8)?;
         self.device
             .smbus_write_byte_data(LED0_OFF_H + 4 * channel,
                                    (off >> 8) as u8)?;
         Ok(())
     }
 
+    /*
+    "Sets a all PWM channel"
+    */
     pub fn set_all_pwm(&mut self, on: u16, off: u16) -> Result<(), LinuxI2CError> {
-        try!(self.device
-                 .smbus_write_byte_data(ALL_LED_ON_L, (on & 0xFF) as u8));
-        try!(self.device
-                 .smbus_write_byte_data(ALL_LED_ON_H, (on >> 8) as u8));
-        try!(self.device
-                 .smbus_write_byte_data(ALL_LED_OFF_L, (off & 0xFF) as u8));
-        try!(self.device
-                 .smbus_write_byte_data(ALL_LED_OFF_H, (off >> 8) as u8));
+        self.device
+            .smbus_write_byte_data(ALL_LED_ON_L, (on & 0xFF) as u8)?;
+        self.device
+            .smbus_write_byte_data(ALL_LED_ON_H, (on >> 8) as u8)?;
+        self.device
+            .smbus_write_byte_data(ALL_LED_OFF_L, (off & 0xFF) as u8)?;
+        self.device
+            .smbus_write_byte_data(ALL_LED_OFF_H, (off >> 8) as u8)?;
         Ok(())
     }
 
-    pub fn set_servo(&mut self,
-                     address:u8,
-                   channel: u8,
-                   on: u16,
-                   off: u16)
-                   -> Result<(), LinuxI2CError> {
+    /*
+    "Sets the Servo Pulse,The PWM frequency must be 50HZ"
+    */
+    pub fn set_servo_pulse(&mut self,
+                           channel: u8,
+                           mut pulse: i16)
+                           -> Result<(), LinuxI2CError> {
 
-        self.device
-            .smbus_write_byte_data(address + 4 * channel,
-                                   (off >> 8) as u8)?;
+        let pulse_hz = pulse*4096/20000;
+        self.set_pwm(channel,0,pulse_hz)?; //PWM frequency is 50HZ,the period is 20000us
+        Ok(())
+    }
+
+    /*
+    "Set Angle of Servo, from -90 deg to +90 deg, in Degrees!"
+     */
+    pub fn set_angle(&mut self,
+                     channel: u8,
+                     mut theta:i16)-> Result<(),LinuxI2CError> {
+        // Catch Angles Outside of Operating Parameters
+        if theta <= -90 {
+            theta = -90;
+        }
+        if theta >= 90 {
+            theta = 90;
+        }
+
+        // Determine PWM Size "d"
+        let d = (((theta + 90) * ((2710-390)/180)) + 390);
+
+        // Use Previously Defined Class Method
+        self.set_servo_pulse(channel, d)?;
         Ok(())
     }
 }
