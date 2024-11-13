@@ -125,7 +125,7 @@ impl PCA9685 {
                            mut pulse: i16)
                            -> Result<(), LinuxI2CError> {
 
-        pulse = (pulse*4096)/20000;
+        pulse = ((pulse*4096)/20000) as i16;
         self.set_pwm(channel,0,pulse)?; //PWM frequency is 50HZ,the period is 20000us
         Ok(())
     }
