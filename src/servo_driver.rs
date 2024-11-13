@@ -125,8 +125,8 @@ impl PCA9685 {
                            mut pulse: i16)
                            -> Result<(), LinuxI2CError> {
 
-        pulse = ((pulse*4096)/20000) as i16;
-        //self.set_pwm(channel,0,pulse)?; //PWM frequency is 50HZ,the period is 20000us
+        let off_pwm : i16 = (pulse*4096)/20000 ;
+        self.set_pwm(channel,0,off_pwm)?; //PWM frequency is 50HZ,the period is 20000us
         Ok(())
     }
 
@@ -149,6 +149,14 @@ impl PCA9685 {
 
         // Use Previously Defined Class Method
         self.set_servo_pulse(channel, d)?;
+        Ok(())
+    }
+
+    pub fn set_servo_center(&mut self,
+                           channel: u8,)
+                           -> Result<(), LinuxI2CError> {
+
+        self.set_pwm(channel,0,1550i16)?; //PWM frequency is 50HZ,the period is 20000us
         Ok(())
     }
 }
