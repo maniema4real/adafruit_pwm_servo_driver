@@ -126,7 +126,7 @@ impl PCA9685 {
                            -> Result<(), LinuxI2CError> {
 
         pulse = ((pulse*4096)/20000) as i16;
-        self.set_pwm(channel,0,pulse)?; //PWM frequency is 50HZ,the period is 20000us
+        //self.set_pwm(channel,0,pulse)?; //PWM frequency is 50HZ,the period is 20000us
         Ok(())
     }
 
@@ -145,7 +145,7 @@ impl PCA9685 {
         }
 
         // Determine PWM Size "d"
-        let d = (((theta + 90) * ((2710-390)/180)) + 390);
+        let d = ((theta + 90) * ((2710-390)/180)) + 390;
 
         // Use Previously Defined Class Method
         self.set_servo_pulse(channel, d)?;
